@@ -77,7 +77,7 @@ docker-compose up -d
 
 ## Embedding the Chatbot Widget
 
-Add this snippet to any therapist website:
+Add this snippet to any therapist website. The server builds and serves `widget.js` automatically — no separate CDN required.
 
 ```html
 <script>
@@ -85,6 +85,8 @@ Add this snippet to any therapist website:
 </script>
 <script src="https://your-domain.com/widget.js"></script>
 ```
+
+The widget reads the `data-session-id` attribute at load time. Create a session via `POST /api/chat/session` (requires therapist JWT) and pass the returned `sessionId` as the attribute value.
 
 ## Security
 

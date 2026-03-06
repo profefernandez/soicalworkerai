@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('therapist', 'admin') NOT NULL DEFAULT 'therapist',
-  lemonade_api_key_encrypted TEXT,
+  lemonade_api_key TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -38,15 +38,14 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
 
--- Crisis audit trail
+-- Crisis audit trail (session_id may be NULL for global/system-level entries)
 CREATE TABLE IF NOT EXISTS audit_log (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  session_id VARCHAR(36) NOT NULL,
+  session_id VARCHAR(36),
   actor VARCHAR(255) NOT NULL,
   action VARCHAR(255) NOT NULL,
   detail TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (session_id) REFERENCES sessions(id)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Notification log

@@ -1,6 +1,6 @@
 const express = require('express');
 const { pool } = require('../config/db');
-const { authenticateAdmin, authenticateToken } = require('../middleware/auth');
+const { authenticateAdmin } = require('../middleware/auth');
 const { decrypt } = require('../middleware/encryption');
 
 const router = express.Router();
@@ -16,6 +16,13 @@ router.get('/sessions', authenticateAdmin, async (req, res) => {
        WHERE s.crisis_active = 1
        ORDER BY s.crisis_activated_at DESC`
     );
+
+    // Audit: log that admin listed crisis sessions
+    await pool.execute(
+      'INSERT INTO audit_log (session_id, actor, action, detail) VALUES (?, ?, ?, ?)',
+      [null, req.user.email, 'listed_crisis_sessions', `${sessions.length} sessions returned`]
+    );
+
     return res.json({ sessions });
   } catch {
     return res.status(500).json({ error: 'Failed to fetch sessions' });
@@ -76,8 +83,8 @@ router.get('/audit', authenticateAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/notifications — notification log
-router.get('/notifications', authenticateToken, async (req, res) => {
+// GET /api/admin/notifications — notification log (admin only)
+router.get('/notifications', authenticateAdmin, async (req, res) => {
   const { sessionId } = req.query;
   try {
     let query = 'SELECT * FROM notifications ORDER BY created_at DESC LIMIT 200';

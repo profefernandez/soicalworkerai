@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const path = require('path');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -22,8 +23,12 @@ const io = new Server(server, {
   },
 });
 
-// Security headers
-app.use(helmet());
+// Security headers (relax CSP for the widget embed use-case)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // CORS
 app.use(
@@ -43,6 +48,20 @@ app.use('/api', apiLimiter);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Serve the built chatbot widget — therapists embed via:
+//   <script src="https://your-domain.com/widget.js" data-session-id="<id>"></script>
+const widgetDistPath = path.join(__dirname, '..', 'chatbot', 'dist');
+app.use(
+  express.static(widgetDistPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      }
+    },
+  })
+);
 
 // Routes
 app.use('/api/auth', authRoutes);
