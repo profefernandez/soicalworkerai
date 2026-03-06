@@ -5,6 +5,10 @@ AI - Human Crisis Monitoring Platform
 
 A crisis-aware AI chatbot platform provided by **60 Watts of Clarity** as a service to therapists and social workers. The chatbot serves as a client-facing support tool that detects crisis situations and activates a protocol connecting a trained AI social worker, human intervention, and multi-channel notifications.
 
+## Wiki
+
+See the [project wiki](docs/wiki.md) for a structured overview of the architecture, setup steps, and operational notes.
+
 ## Architecture
 
 ```
@@ -100,4 +104,3 @@ The widget reads the `data-session-id` attribute at load time. Create a session 
 ## Environment Variables
 
 See `.env.example` for all required configuration values.
-
