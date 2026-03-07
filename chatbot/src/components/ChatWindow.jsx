@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { Send, AlertTriangle, Heart } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
+import SafetyBanner from './SafetyBanner';
 
 function MessageBubble({ sender, content, index }) {
   const ref = useRef(null);
@@ -88,6 +89,8 @@ export default function ChatWindow({ sessionId }) {
           </div>
         )}
       </div>
+
+      <SafetyBanner crisisActive={crisisActive} />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 max-w-2xl w-full mx-auto">
