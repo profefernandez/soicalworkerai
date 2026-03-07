@@ -46,20 +46,21 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1115] flex">
+    <div className="min-h-screen bg-ember-base flex">
       <Sidebar page={page} onNavigate={setPage} user={user} onLogout={handleLogout} />
 
-      <main className="flex-1 overflow-auto">
-        {/* Connection status bar */}
-        <div className="flex items-center justify-end px-6 py-2 border-b border-slate-800 bg-[#121419]">
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Connection status */}
+        <div className="flex items-center justify-end px-6 py-2 border-b border-ember-text/5 frost-panel">
+          <div className="flex items-center gap-2 text-xs text-ember-muted font-mono">
+            <span
+              className={`w-2 h-2 rounded-full ${connected ? 'bg-ember-safe' : 'bg-ember-crisis'}`}
+            />
             {connected ? 'Connected' : 'Disconnected'}
           </div>
           {crisisSessions.length > 0 && (
-            <span className="ml-4 text-xs text-red-400 bg-red-900/30 px-2 py-0.5 rounded-full">
-              {crisisSessions.length} active crisis
-              {crisisSessions.length > 1 ? 'es' : ''}
+            <span className="ml-4 text-xs text-ember-crisis bg-ember-crisis/10 border border-ember-crisis/20 px-2 py-0.5 rounded-full font-mono">
+              {crisisSessions.length} active crisis{crisisSessions.length > 1 ? 'es' : ''}
             </span>
           )}
         </div>

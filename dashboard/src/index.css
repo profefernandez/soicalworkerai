@@ -1,16 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg-primary: #0f1115;
-  --bg-card: #1a1d24;
-  --accent: #fee104;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #1A1614;
+    color: #F0EBE3;
+  }
 }
 
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  background: #0f1115;
-  color: white;
+@layer components {
+  .frost-panel {
+    background: rgba(42, 36, 33, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(240, 235, 227, 0.08);
+  }
+
+  .ember-gradient {
+    background: linear-gradient(135deg, #E8913A, #C4785C);
+  }
+
+  .ember-glow:hover {
+    box-shadow: 0 0 20px rgba(232, 145, 58, 0.4);
+  }
 }

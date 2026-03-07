@@ -1,25 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, ArrowLeft } from 'lucide-react';
+import { gsap } from 'gsap';
+import { ArrowLeft, Send, AlertTriangle, Shield } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function CrisisView({ session, token, sendIntercept, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const bottomRef = useRef(null);
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    async function loadMessages() {
+    const fetchMessages = async () => {
       try {
-        const res = await fetch(`/api/admin/sessions/${session.id}/messages`, {
+        const res = await fetch(`${API_URL}/api/admin/sessions/${session.id}/messages`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        setMessages(data.messages || []);
-      } catch {
-        // silent
+        if (res.ok) {
+          const data = await res.json();
+          setMessages(data.messages || []);
+        }
+      } catch (err) {
+        console.error('Failed to load messages:', err.message);
       }
-    }
-    loadMessages();
-    const interval = setInterval(loadMessages, 5000);
+    };
+
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
   }, [session.id, token]);
 
@@ -27,85 +34,104 @@ export default function CrisisView({ session, token, sendIntercept, onBack }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  function handleSend() {
-    const text = input.trim();
-    if (!text) return;
-    sendIntercept(session.id, text);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    gsap.fromTo(
+      containerRef.current,
+      { x: 20, opacity: 0 },
+      { x: 0, opacity: 1, duration: 0.4, ease: 'power3.out' }
+    );
+  }, []);
+
+  const handleSend = () => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    sendIntercept(session.id, trimmed);
     setMessages((prev) => [
       ...prev,
-      { id: Date.now(), sender: 'admin', content: text, createdAt: new Date().toISOString() },
+      { id: Date.now(), sender: 'admin', content: trimmed, createdAt: new Date().toISOString() },
     ]);
     setInput('');
-  }
+  };
 
-  function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  }
+  const senderStyles = {
+    client: 'ml-12 bg-ember-primary/10 border border-ember-primary/15',
+    ai: 'mr-12 frost-panel',
+    admin: 'mr-12 frost-panel border border-ember-secondary/30',
+  };
+
+  const senderLabels = { client: 'Client', ai: 'AI Counselor', admin: 'Crisis Team' };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 p-4 border-b border-slate-800">
+    <div ref={containerRef} className="flex-1 flex flex-col bg-ember-base">
+      <div className="frost-panel border-b border-ember-text/5 px-4 py-3 flex items-center gap-3">
         <button
           onClick={onBack}
-          className="text-slate-400 hover:text-white transition-colors"
-          aria-label="Back"
+          className="text-ember-muted hover:text-ember-text transition-colors"
+          aria-label="Back to monitor"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft className="w-5 h-5" />
         </button>
-        <div>
-          <h3 className="text-white font-semibold text-sm">
-            Session {session.id.slice(0, 8)}…
-          </h3>
-          <p className="text-slate-500 text-xs">{session.therapist_email}</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-ember-text font-heading text-sm">Session</span>
+            <code className="text-ember-primary font-mono text-xs">
+              {session.id?.substring(0, 12)}...
+            </code>
+          </div>
+          <span className="text-ember-muted text-xs font-mono">{session.therapist_email}</span>
         </div>
-        <span className="ml-auto text-xs bg-red-900/40 text-red-400 px-2 py-0.5 rounded-full">
-          Crisis Active
-        </span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ember-crisis/15 border border-ember-crisis/25">
+          <AlertTriangle className="w-3.5 h-3.5 text-ember-crisis" />
+          <span className="text-xs text-ember-crisis font-mono">Crisis Active</span>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((msg) => (
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {messages.map((msg, i) => (
           <div
-            key={msg.id}
-            className={`flex ${msg.sender === 'client' ? 'justify-start' : 'justify-end'}`}
+            key={msg.id || i}
+            className={`rounded-xl px-4 py-3 text-sm text-ember-text ${senderStyles[msg.sender] || ''}`}
           >
-            <div
-              className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${
-                msg.sender === 'client'
-                  ? 'bg-slate-700/60 text-white'
-                  : msg.sender === 'ai'
-                    ? 'bg-slate-600/40 text-slate-300'
-                    : 'bg-blue-700/40 text-blue-200 border border-blue-600/40'
-              }`}
-            >
-              <span className="block text-xs text-slate-400 mb-1 capitalize">{msg.sender}</span>
-              {msg.content}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-mono text-ember-muted uppercase tracking-wider">
+                {senderLabels[msg.sender] || msg.sender}
+              </span>
+              {msg.createdAt && (
+                <span className="text-[10px] font-mono text-ember-muted/50">
+                  {new Date(msg.createdAt).toLocaleTimeString()}
+                </span>
+              )}
             </div>
+            {msg.content}
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
-      <div className="p-4 border-t border-slate-800 flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Intercept and message the client…"
-          className="flex-1 bg-[#0f1115] text-white text-sm rounded-2xl px-4 py-2 border border-slate-700 focus:outline-none focus:border-blue-500 placeholder:text-slate-500"
-        />
-        <button
-          onClick={handleSend}
-          disabled={!input.trim()}
-          className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-3 py-2 disabled:opacity-40 transition-colors"
-          aria-label="Send intercept message"
-        >
-          <Send size={16} />
-        </button>
+      <div className="frost-panel border-t border-ember-text/5 px-4 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Shield className="w-3.5 h-3.5 text-ember-secondary" />
+          <span className="text-xs text-ember-muted font-mono">Intercept as Crisis Team</span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Send message to client..."
+            className="flex-1 bg-ember-surface text-ember-text text-sm rounded-lg px-3 py-2 border border-ember-text/10 placeholder:text-ember-muted/60 focus:outline-none focus:ring-1 focus:ring-ember-secondary/50"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim()}
+            className="ember-gradient rounded-lg px-3 py-2 text-ember-text disabled:opacity-30 transition-all ember-glow"
+            aria-label="Send intercept"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

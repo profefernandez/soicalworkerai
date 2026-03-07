@@ -1,74 +1,76 @@
 import { useState, useEffect } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, MessageSquare, Phone, Mail } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+const typeConfig = {
+  sms: { icon: MessageSquare, color: 'text-ember-safe', bg: 'bg-ember-safe/10' },
+  call: { icon: Phone, color: 'text-ember-primary', bg: 'bg-ember-primary/10' },
+  email: { icon: Mail, color: 'text-ember-secondary', bg: 'bg-ember-secondary/10' },
+};
 
 export default function NotificationsPage({ token }) {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    async function load() {
+    const fetchNotifications = async () => {
       try {
-        const res = await fetch('/api/admin/notifications', {
+        const res = await fetch(`${API_URL}/api/admin/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-      } catch {
-        // silent
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data.notifications || []);
+        }
+      } catch (err) {
+        console.error('Failed to load notifications:', err.message);
       }
-    }
-    load();
+    };
+    fetchNotifications();
   }, [token]);
 
-  const typeColor = {
-    sms: 'bg-green-900/40 text-green-400',
-    call: 'bg-yellow-900/40 text-yellow-400',
-    email: 'bg-blue-900/40 text-blue-400',
-  };
-
   return (
-    <div className="p-6">
-      <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-        <Bell size={20} className="text-[#fee104]" />
-        Notification Log
-      </h2>
-      <div className="bg-[#1a1d24] rounded-2xl border border-slate-800 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-800">
-              <th className="text-left text-slate-400 px-4 py-3 font-medium">Time</th>
-              <th className="text-left text-slate-400 px-4 py-3 font-medium">Session</th>
-              <th className="text-left text-slate-400 px-4 py-3 font-medium">Type</th>
-              <th className="text-left text-slate-400 px-4 py-3 font-medium">Recipient</th>
-              <th className="text-left text-slate-400 px-4 py-3 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {notifications.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center text-slate-500 py-8">
-                  No notifications sent
-                </td>
-              </tr>
-            )}
-            {notifications.map((n) => (
-              <tr key={n.id} className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                <td className="px-4 py-3 text-slate-400">
+    <div className="flex-1 flex flex-col bg-ember-base">
+      <div className="frost-panel border-b border-ember-text/5 px-6 py-4 flex items-center gap-3">
+        <Bell className="w-5 h-5 text-ember-primary" />
+        <h1 className="font-heading text-xl text-ember-text">Notifications</h1>
+        <span className="text-ember-muted text-sm font-mono ml-auto">
+          {notifications.length} sent
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-2">
+          {notifications.length === 0 && (
+            <div className="text-center text-ember-muted py-12">No notifications sent</div>
+          )}
+          {notifications.map((n) => {
+            const config = typeConfig[n.type] || typeConfig.sms;
+            const Icon = config.icon;
+            return (
+              <div key={n.id} className="frost-panel rounded-lg px-4 py-3 flex items-center gap-4">
+                <span className="text-[10px] font-mono text-ember-muted whitespace-nowrap">
                   {new Date(n.created_at).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-slate-300 font-mono text-xs">
-                  {String(n.session_id).slice(0, 8)}…
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${typeColor[n.type] || 'bg-slate-700/40 text-slate-400'}`}>
-                    {n.type}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-300">{n.recipient}</td>
-                <td className="px-4 py-3 text-slate-400">{n.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </span>
+                <code className="text-xs text-ember-primary font-mono">
+                  {n.session_id ? String(n.session_id).substring(0, 8) : '---'}
+                </code>
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded ${config.bg}`}>
+                  <Icon className={`w-3 h-3 ${config.color}`} />
+                  <span className={`text-xs font-mono ${config.color}`}>{n.type}</span>
+                </div>
+                <span className="text-xs text-ember-muted font-mono">{n.recipient}</span>
+                <span
+                  className={`text-xs font-mono ml-auto ${
+                    n.status === 'sent' ? 'text-ember-safe' : 'text-ember-crisis'
+                  }`}
+                >
+                  {n.status}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
