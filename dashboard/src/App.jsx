@@ -8,10 +8,12 @@ import Sidebar from './components/Sidebar';
 import { useDashboard } from './hooks/useDashboard';
 
 export default function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('dash_token') || '');
+  const isDev = import.meta.env.DEV;
+  const [token, setToken] = useState(() => localStorage.getItem('dash_token') || (isDev ? 'dev-preview' : ''));
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('dash_user') || 'null');
+      const stored = JSON.parse(localStorage.getItem('dash_user') || 'null');
+      return stored || (isDev ? { email: 'dev@preview.local', role: 'admin' } : null);
     } catch {
       return null;
     }

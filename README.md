@@ -1,83 +1,78 @@
-# social-worker-ai
-AI - Human Crisis Monitoring Platform
+# Social Worker AI
 
-## Overview
+**The first human-AI crisis response team for any chatbot.**
 
-A crisis-aware AI chatbot platform provided by **60 Watts of Clarity** as a service to therapists and social workers. The chatbot serves as a client-facing support tool that detects crisis situations and activates a protocol connecting a trained AI social worker, human intervention, and multi-channel notifications.
+Companies embed our chatbot widget on their websites for customer service, coaching, support — anything. Social Worker AI silently monitors every conversation for crisis signals. When triggered, an autonomous crisis protocol activates: a trained AI social worker takes over the conversation, a team of specialized AI agents locates the user and coordinates communications, and a licensed social worker (LMSW) monitors in real-time — ready to personally intervene and initiate a welfare check if the situation is dire.
+
+**Built by [60 Watts of Clarity](https://60wattsofclarity.com)** | Founded by Jason Fernandez, MA, LMSW
+
+## How It Works
+
+```
+Normal Operation:
+  End User <---> Chatbot Widget <---> AI (customer service, coaching, etc.)
+                                        |
+                              [Silent crisis monitoring]
+
+Crisis Detected:
+  End User <---> Social Worker AI Agent (takes over immediately)
+                        |
+              Dashboard AI Team activates:
+              ├── Search Agent --- locates the user
+              ├── Comms Agent ---- live updates to LMSW + company owner
+              └── Audit Agent ---- logs every interaction
+                        |
+              Jason (LMSW) monitors via Comms Agent
+                        |
+              If dire: Jason enters chat directly -> welfare check
+```
 
 ## Architecture
 
 ```
-[End User — Chatbot Widget]
-       ↕  WebSocket (real-time, encrypted)
-[Node.js Backend Server (Docker Container)]
-       ↕  REST API (secured endpoints)
-[Launch Lemonade API — Social Worker AI Agent]
-       ↕
-[Twilio — SMS + Voice Call Notifications]
-[SendGrid — Email Notifications]
-
-[Therapist / 60 Watts Admin — Dashboard]
-       ↕  WebSocket (authenticated, same server)
-[Node.js Backend]
-       ↕
-[MySQL Database (SPanel)]
+social-worker-ai/
+├── chatbot/       # Embeddable widget — deploys on any website via <script> tag
+├── dashboard/     # Crisis command center — 3D session constellation, real-time ops
+├── server/        # Backend — crisis detection, protocol activation, encrypted messaging
+├── Dockerfile     # Multi-stage production build
+└── docker-compose.yml
 ```
 
-## Project Structure
-
-```
-├── chatbot/          # Embeddable widget for therapist websites (React + Vite)
-├── dashboard/        # Admin monitoring panel (React + Vite)
-├── server/           # Node.js backend (Express + Socket.io)
-├── Dockerfile
-├── docker-compose.yml
-└── .env.example
-```
+| Component | Stack |
+|-----------|-------|
+| Widget | React 18, Socket.io, GSAP, Tailwind CSS |
+| Dashboard | React 18, React Three Fiber, GSAP, Tailwind CSS |
+| Server | Node.js 20, Express, Socket.io, MySQL 8 |
+| AI | Launch Lemonade API (regular + crisis agents) |
+| Alerts | Twilio (SMS + voice), SendGrid (email) |
 
 ## Quick Start
 
-### 1. Clone and configure
-
 ```bash
-cp .env.example .env
-# Fill in all required values in .env
-```
+# Clone and configure
+git clone https://github.com/profefernandez/social-worker-ai.git
+cd social-worker-ai
+cp .env.example .env    # Fill in all required values
 
-### 2. Install dependencies
-
-```bash
+# Install
 npm install --ignore-scripts
-```
 
-### 3. Set up MySQL
-
-Run `server/models/schema.sql` against your MySQL instance:
-
-```bash
+# Database
 mysql -u <user> -p <database> < server/models/schema.sql
-```
 
-### 4. Run in development
-
-```bash
+# Development
 npm run dev
-```
+# Server:    http://localhost:3000
+# Chatbot:   http://localhost:5173
+# Dashboard: http://localhost:5174
 
-This starts:
-- Server on `http://localhost:3000`
-- Chatbot widget on `http://localhost:5173`
-- Dashboard on `http://localhost:5174`
-
-### 5. Deploy with Docker
-
-```bash
+# Production
 docker-compose up -d
 ```
 
-## Embedding the Chatbot Widget
+## Embedding the Widget
 
-Add this snippet to any therapist website. The server builds and serves `widget.js` automatically — no separate CDN required.
+Add to any website. The chatbot handles normal conversations; Social Worker AI activates only during crisis.
 
 ```html
 <script>
@@ -86,18 +81,32 @@ Add this snippet to any therapist website. The server builds and serves `widget.
 <script src="https://your-domain.com/widget.js"></script>
 ```
 
-The widget reads the `data-session-id` attribute at load time. Create a session via `POST /api/chat/session` (requires therapist JWT) and pass the returned `sessionId` as the attribute value.
+Create sessions via `POST /api/chat/session` (requires JWT). Pass the returned `sessionId` to the widget.
 
 ## Security
 
-- All chat messages encrypted at rest with AES-256-CBC
-- JWT authentication for dashboard and WebSocket connections
-- Rate limiting on all public API endpoints
-- HTTP security headers via Helmet
-- Admin access to chat data only when crisis protocol is active
-- Full audit trail of all crisis session access
+- AES-256-CBC encryption on all messages at rest
+- JWT authentication with bcrypt password hashing
+- Rate limiting on all public endpoints
+- Helmet security headers
+- Crisis session access restricted to authorized personnel only
+- Immutable audit trail — every crisis interaction logged
+- Input validation and parameterized queries throughout
+
+## Crisis Detection
+
+22 crisis keywords + 4 regex patterns monitor every message. When triggered:
+
+1. Session flagged as crisis-active
+2. Social Worker AI agent takes over the conversation
+3. Dashboard AI team (Search, Comms, Audit) activates
+4. SMS, voice call, and email alerts sent to LMSW + company owner
+5. LMSW monitors and can personally intervene
 
 ## Environment Variables
 
 See `.env.example` for all required configuration values.
 
+## License
+
+Apache-2.0
