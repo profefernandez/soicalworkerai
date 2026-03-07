@@ -5,6 +5,7 @@ const { runAssistant } = require('../services/lemonade');
 const { sendSms, makeCall } = require('../services/twilio');
 const { sendCrisisEmail } = require('../services/sendgrid');
 const { verifySocketToken } = require('../middleware/auth');
+const { validateUUID, validateMessageLength } = require('../middleware/validation');
 
 // All authenticated dashboard sockets join the 'dashboard' room so crisis events
 // are broadcast only to authorized users.
@@ -59,7 +60,9 @@ function setupSocketHandlers(io) {
     // Chatbot clients join their session room after the server validates the session exists
     if (socket.userType === 'client') {
       socket.on('client:join', async (sessionId) => {
-        if (!sessionId) return;
+        if (!sessionId || !validateUUID(sessionId)) {
+          return socket.emit('error', { message: 'Invalid session ID' });
+        }
         try {
           const [rows] = await pool.execute(
             'SELECT id FROM sessions WHERE id = ?',
@@ -78,6 +81,9 @@ function setupSocketHandlers(io) {
     socket.on('client:message', async (data) => {
       const { sessionId, message } = data;
       if (!sessionId || !message) return;
+      if (!validateUUID(sessionId) || !validateMessageLength(message)) {
+        return socket.emit('error', { message: 'Invalid input' });
+      }
 
       try {
         // 1. Validate session first to avoid wasted work on invalid IDs
@@ -158,6 +164,9 @@ function setupSocketHandlers(io) {
       if (socket.userType !== 'admin' && socket.userType !== 'therapist') return;
       const { sessionId, message } = data;
       if (!sessionId || !message) return;
+      if (!validateUUID(sessionId) || !validateMessageLength(message)) {
+        return socket.emit('error', { message: 'Invalid input' });
+      }
 
       try {
         // Verify the session exists, is crisis-active, and belongs to the right user

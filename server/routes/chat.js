@@ -4,6 +4,7 @@ const { pool } = require('../config/db');
 const { authenticateToken } = require('../middleware/auth');
 const { encrypt, decrypt } = require('../middleware/encryption');
 const { apiLimiter } = require('../middleware/rateLimiter');
+const { validateUUID } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -25,6 +26,9 @@ router.post('/session', apiLimiter, authenticateToken, async (req, res) => {
 // GET /api/chat/session/:sessionId/messages
 router.get('/session/:sessionId/messages', authenticateToken, async (req, res) => {
   const { sessionId } = req.params;
+  if (!validateUUID(sessionId)) {
+    return res.status(400).json({ error: 'Invalid session ID' });
+  }
   try {
     // Verify session belongs to user (or admin)
     const [sessions] = await pool.execute('SELECT * FROM sessions WHERE id = ?', [sessionId]);

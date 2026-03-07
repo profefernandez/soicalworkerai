@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const express = require('express');
 const { pool } = require('../config/db');
 const { authLimiter } = require('../middleware/rateLimiter');
+const { validateEmail, validatePassword } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -11,6 +12,12 @@ router.post('/register', authLimiter, async (req, res) => {
   const { email, password, role } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
+  }
+  if (!validateEmail(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+  if (!validatePassword(password)) {
+    return res.status(400).json({ error: 'Password must be 8-128 characters' });
   }
 
   try {
@@ -34,6 +41,9 @@ router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
+  }
+  if (!validateEmail(email) || !validatePassword(password)) {
+    return res.status(400).json({ error: 'Invalid credentials format' });
   }
 
   try {

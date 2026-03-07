@@ -1,5 +1,10 @@
 require('dotenv').config();
 
+const { validateEnv } = require('./utils/validateEnv');
+if (process.env.NODE_ENV !== 'test') {
+  validateEnv();
+}
+
 const path = require('path');
 const express = require('express');
 const http = require('http');
