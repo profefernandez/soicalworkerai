@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
-import { Send, AlertTriangle, Heart } from 'lucide-react';
+import { Send, AlertTriangle, Sparkles } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
 import SafetyBanner from './SafetyBanner';
 
@@ -26,7 +26,7 @@ function MessageBubble({ sender, content, index }) {
 
   const labels = {
     client: null,
-    ai: 'AI Assistant',
+    ai: 'Study Assistant',
     social_worker_ai: 'Social Worker AI',
     admin: 'Jason Fernandez, LMSW',
     system: null,
@@ -87,10 +87,10 @@ export default function ChatWindow({ sessionId }) {
       <div className="frost-panel px-6 py-4 flex items-center justify-between border-b border-ember-text/5">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg ember-gradient flex items-center justify-center">
-            <Heart className="w-4 h-4 text-ember-text" />
+            <Sparkles className="w-4 h-4 text-ember-text" />
           </div>
           <div>
-            <h1 className="font-heading text-ember-text text-lg leading-tight">Social Worker AI</h1>
+            <h1 className="font-heading text-ember-text text-lg leading-tight">60 Watts of Intelligence</h1>
             <div className="flex items-center gap-1.5">
               <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-ember-safe' : 'bg-ember-muted'}`} />
               <span className="text-[10px] font-mono text-ember-muted">
@@ -115,10 +115,30 @@ export default function ChatWindow({ sessionId }) {
           {messages.length === 0 && (
             <div className="text-center mt-16">
               <div className="w-12 h-12 rounded-full bg-ember-primary/10 mx-auto mb-4 flex items-center justify-center">
-                <Heart className="w-5 h-5 text-ember-primary" />
+                <Sparkles className="w-5 h-5 text-ember-primary" />
               </div>
-              <p className="text-ember-muted text-sm mb-1">Welcome. This is a safe space.</p>
-              <p className="text-ember-muted/60 text-xs">How can I support you today?</p>
+              <p className="text-ember-text text-sm font-medium mb-1">Hey! Ready to study?</p>
+              <p className="text-ember-muted text-xs mb-4">Ask me anything — homework, test prep, or just curious questions.</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={() => sendMessage('Help me with my math homework')}
+                  className="text-[11px] font-mono text-ember-muted bg-ember-surface px-3 py-1.5 rounded-full border border-ember-text/10 hover:border-ember-primary/30 hover:text-ember-text transition-colors"
+                >
+                  Help with math
+                </button>
+                <button
+                  onClick={() => sendMessage('Explain photosynthesis')}
+                  className="text-[11px] font-mono text-ember-muted bg-ember-surface px-3 py-1.5 rounded-full border border-ember-text/10 hover:border-ember-primary/30 hover:text-ember-text transition-colors"
+                >
+                  Explain photosynthesis
+                </button>
+                <button
+                  onClick={() => sendMessage('Help me write an essay outline')}
+                  className="text-[11px] font-mono text-ember-muted bg-ember-surface px-3 py-1.5 rounded-full border border-ember-text/10 hover:border-ember-primary/30 hover:text-ember-text transition-colors"
+                >
+                  Essay outline
+                </button>
+              </div>
             </div>
           )}
           {messages.map((msg, i) => (
@@ -136,7 +156,7 @@ export default function ChatWindow({ sessionId }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
+            placeholder="Ask me anything..."
             className="flex-1 bg-ember-surface text-ember-text text-sm rounded-xl px-4 py-3 border border-ember-text/10 placeholder:text-ember-muted/60 focus:outline-none focus:ring-1 focus:ring-ember-primary/50"
           />
           <button
@@ -149,7 +169,7 @@ export default function ChatWindow({ sessionId }) {
           </button>
         </div>
         <p className="text-center text-ember-muted/40 text-[10px] font-mono mt-3">
-          If you are in immediate danger, call 988 or 911
+          Type <span className="text-ember-muted/60">@socialworker</span> if you need to talk to someone &middot; 988 or 911 for emergencies
         </p>
       </div>
     </div>
