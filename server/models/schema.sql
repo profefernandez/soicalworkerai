@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   client_identifier VARCHAR(255),
   crisis_active TINYINT(1) DEFAULT 0,
   crisis_activated_at TIMESTAMP NULL,
+  active_agent_id VARCHAR(255) DEFAULT NULL,
   lemonade_conversation_id VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -31,7 +32,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS messages (
   id INT AUTO_INCREMENT PRIMARY KEY,
   session_id VARCHAR(36) NOT NULL,
-  sender ENUM('client', 'ai', 'admin') NOT NULL,
+  sender ENUM('client', 'ai', 'social_worker_ai', 'admin') NOT NULL,
   content_encrypted TEXT NOT NULL,
   iv VARCHAR(64) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -58,3 +59,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
+
+-- Migration: add agent tracking and expanded sender types
+ALTER TABLE sessions ADD COLUMN active_agent_id VARCHAR(255) DEFAULT NULL;
+
+ALTER TABLE messages MODIFY COLUMN sender ENUM('client', 'ai', 'social_worker_ai', 'admin') NOT NULL;
