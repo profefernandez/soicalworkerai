@@ -28,7 +28,11 @@ describe('validateEnv', () => {
     process.env.ENCRYPTION_KEY = 'test-key-at-least-32-chars-long!!';
     process.env.LEMONADE_API_KEY = 'test';
     process.env.LEMONADE_API_URL = 'https://example.com';
-    process.env.LEMONADE_ASSISTANT_ID = 'test';
+    process.env.LEMONADE_AGENT_CHATBOT_ID = 'test';
+    process.env.LEMONADE_AGENT_SOCIAL_WORKER_ID = 'test';
+    process.env.LEMONADE_AGENT_SEARCH_ID = 'test';
+    process.env.LEMONADE_AGENT_COMMS_ID = 'test';
+    process.env.LEMONADE_AGENT_AUDIT_ID = 'test';
     expect(validateEnv()).toBe(true);
   });
 
