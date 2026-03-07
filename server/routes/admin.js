@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../config/db');
 const { authenticateAdmin } = require('../middleware/auth');
 const { decrypt } = require('../middleware/encryption');
+const { validateUUID } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -32,6 +33,9 @@ router.get('/sessions', authenticateAdmin, async (req, res) => {
 // GET /api/admin/sessions/:sessionId/messages — admin reads a crisis session
 router.get('/sessions/:sessionId/messages', authenticateAdmin, async (req, res) => {
   const { sessionId } = req.params;
+  if (!validateUUID(sessionId)) {
+    return res.status(400).json({ error: 'Invalid session ID' });
+  }
   try {
     const [sessions] = await pool.execute(
       'SELECT * FROM sessions WHERE id = ? AND crisis_active = 1',

@@ -3,7 +3,7 @@ version: '3.8'
 services:
   node-server:
     build: .
-    container_name: soicalworkerai-server
+    container_name: social-worker-ai-server
     ports:
       - '3000:3000'
     environment:

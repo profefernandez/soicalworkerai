@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest --testPathPattern=server"
+    "test": "jest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.7",

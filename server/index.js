@@ -43,8 +43,8 @@ app.use(
 );
 
 // Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
 // Rate limiting on all API routes
 app.use('/api', apiLimiter);
@@ -67,6 +67,10 @@ app.use(
     },
   })
 );
+
+// Serve the built dashboard
+const dashboardDistPath = path.join(__dirname, '..', 'dashboard', 'dist');
+app.use('/dashboard', express.static(dashboardDistPath));
 
 // Routes
 app.use('/api/auth', authRoutes);

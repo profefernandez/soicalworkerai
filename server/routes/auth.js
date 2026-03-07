@@ -22,7 +22,9 @@ router.post('/register', authLimiter, async (req, res) => {
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
-    const userRole = role === 'admin' ? 'admin' : 'therapist';
+    // Only allow 'therapist' role via public registration
+    // Admin accounts must be created directly in the database or by an existing admin
+    const userRole = 'therapist';
     const [result] = await pool.execute(
       'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
       [email, passwordHash, userRole]
