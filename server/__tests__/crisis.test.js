@@ -1,59 +1,49 @@
-const { detectCrisis } = require('../services/crisis');
+const { parseCrisisSignal, CRISIS_SIGNAL, MONITORING_SIGNAL } = require('../services/crisis');
 
-describe('Crisis Detection', () => {
-  test('detects direct keyword: suicide', () => {
-    const result = detectCrisis('I am thinking about suicide');
+describe('Agent-Driven Crisis Detection', () => {
+  test('detects crisis signal in agent response', () => {
+    const result = parseCrisisSignal('[CRISIS_PROTOCOL] This person needs immediate help.');
     expect(result.isCrisis).toBe(true);
-    expect(result.triggers).toContain('suicide');
+    expect(result.cleanResponse).toBe('This person needs immediate help.');
   });
 
-  test('detects phrase: kill myself', () => {
-    const result = detectCrisis('I want to kill myself');
+  test('detects crisis signal anywhere in response', () => {
+    const result = parseCrisisSignal('I detect danger. [CRISIS_PROTOCOL] Activating now.');
     expect(result.isCrisis).toBe(true);
-    expect(result.triggers).toContain('kill myself');
+    expect(result.cleanResponse).toBe('I detect danger. Activating now.');
   });
 
-  test('detects regex: i want to die', () => {
-    const result = detectCrisis('i want to die right now');
-    expect(result.isCrisis).toBe(true);
-  });
-
-  test('detects regex: thinking about ending it', () => {
-    const result = detectCrisis('I am thinking about ending my life');
-    expect(result.isCrisis).toBe(true);
-  });
-
-  test('detects case-insensitive', () => {
-    const result = detectCrisis('SUICIDE is on my mind');
-    expect(result.isCrisis).toBe(true);
-  });
-
-  test('does not trigger on safe messages', () => {
-    const result = detectCrisis('I had a great day today');
+  test('returns false for monitoring-only response', () => {
+    const result = parseCrisisSignal('[MONITORING] Conversation appears normal.');
     expect(result.isCrisis).toBe(false);
-    expect(result.triggers).toHaveLength(0);
+    expect(result.cleanResponse).toBe('Conversation appears normal.');
   });
 
-  test('does not trigger on therapy discussion about concepts', () => {
-    const result = detectCrisis('Today we discussed coping strategies');
+  test('returns false for response without any signal', () => {
+    const result = parseCrisisSignal('User seems fine, no concerns.');
     expect(result.isCrisis).toBe(false);
-  });
-
-  test('returns multiple triggers when present', () => {
-    const result = detectCrisis('I feel hopeless and suicidal');
-    expect(result.isCrisis).toBe(true);
-    expect(result.triggers.length).toBeGreaterThanOrEqual(2);
-  });
-
-  test('deduplicates triggers', () => {
-    const result = detectCrisis('suicide suicide suicide');
-    expect(result.isCrisis).toBe(true);
-    const unique = new Set(result.triggers);
-    expect(result.triggers.length).toBe(unique.size);
+    expect(result.cleanResponse).toBe('User seems fine, no concerns.');
   });
 
   test('handles empty string', () => {
-    const result = detectCrisis('');
+    const result = parseCrisisSignal('');
     expect(result.isCrisis).toBe(false);
+    expect(result.cleanResponse).toBe('');
+  });
+
+  test('handles null/undefined', () => {
+    expect(parseCrisisSignal(null).isCrisis).toBe(false);
+    expect(parseCrisisSignal(undefined).isCrisis).toBe(false);
+  });
+
+  test('strips both signal tags from response', () => {
+    const result = parseCrisisSignal('[CRISIS_PROTOCOL] Help needed');
+    expect(result.cleanResponse).not.toContain('[CRISIS_PROTOCOL]');
+    expect(result.cleanResponse).not.toContain('[MONITORING]');
+  });
+
+  test('exports signal constants', () => {
+    expect(CRISIS_SIGNAL).toBe('[CRISIS_PROTOCOL]');
+    expect(MONITORING_SIGNAL).toBe('[MONITORING]');
   });
 });

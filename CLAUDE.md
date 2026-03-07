@@ -8,8 +8,8 @@ Social Worker AI is a **B2B embeddable chatbot with an autonomous crisis interve
 
 ### Crisis Protocol Flow
 
-1. **Detection** — Crisis keywords/patterns detected in conversation
-2. **AI Takeover** — Social Worker AI agent immediately takes over the conversation from the regular chatbot, engaging the person directly. This agent is trained as a social worker by Jason Fernandez, LMSW.
+1. **Detection** — The Social Worker AI agent silently monitors EVERY conversation in the background. It uses its trained judgment (not keyword matching) to determine when crisis protocol should activate. The server sends each user message to the Social Worker AI in parallel — its monitoring response is never shown to the end user.
+2. **AI Takeover** — When the Social Worker AI agent signals crisis (via `[CRISIS_PROTOCOL]` in its response), it immediately takes over the conversation from the regular chatbot, engaging the person directly. This agent is trained as a social worker by Jason Fernandez, LMSW.
 3. **Dashboard Team Activates** — Three specialized AI agents activate simultaneously, each trained as social workers:
    - **Search Agent** — Locates the user using any available information
    - **Comms Agent** — Sends live updates to Jason (the licensed social worker) AND the company owner
@@ -253,7 +253,7 @@ docker-compose up -d
 
 | Function | Path |
 |----------|------|
-| Crisis detection | server/services/crisis.js |
+| Crisis signal parsing | server/services/crisis.js |
 | Crisis protocol activation | server/socket/handler.js (activateCrisisProtocol) |
 | Notifications | server/services/{twilio,sendgrid,lemonade}.js |
 | Database | server/config/db.js, server/models/schema.sql |

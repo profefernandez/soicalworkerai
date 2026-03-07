@@ -1,6 +1,6 @@
 const { pool } = require('../config/db');
 const { encrypt } = require('../middleware/encryption');
-const { detectCrisis } = require('../services/crisis');
+const { parseCrisisSignal } = require('../services/crisis');
 const { callAgent, AGENT_ROLES } = require('../services/agentOrchestrator');
 const { sendSms, makeCall } = require('../services/twilio');
 const { sendCrisisEmail } = require('../services/sendgrid');
@@ -105,64 +105,88 @@ function setupSocketHandlers(io) {
           [sessionId, 'client', encrypted, iv]
         );
 
-        // 4. Detect crisis
-        const { isCrisis, triggers } = detectCrisis(message);
-
-        // 5. If crisis and not already active, activate protocol
-        if (isCrisis && !session.crisis_active) {
-          await activateCrisisProtocol(session, sessionId, message, triggers, therapist, io);
-        }
-
-        // 6. Determine which agent should respond
-        const activeRole = session.active_agent_id
-          ? (session.active_agent_id === process.env.LEMONADE_AGENT_SOCIAL_WORKER_ID
-              ? AGENT_ROLES.SOCIAL_WORKER
-              : AGENT_ROLES.CHATBOT)
-          : AGENT_ROLES.CHATBOT;
-
-        // If Jason has taken over (active_agent_id === 'ADMIN'), don't send to any AI
+        // 4. If Jason has taken over, don't send to any AI
         if (session.active_agent_id === 'ADMIN') {
-          // Just save the message, no AI response — Jason responds manually
-          // Still notify dashboard of activity
           io.to('dashboard').emit('session:update', {
             sessionId,
-            crisisActive: isCrisis || !!session.crisis_active,
+            crisisActive: !!session.crisis_active,
           });
           return;
         }
 
+        // 5. If crisis already active, route to Social Worker AI (it's the active responder)
+        if (session.crisis_active) {
+          let aiResponse = '';
+          try {
+            const result = await callAgent(AGENT_ROLES.SOCIAL_WORKER, message, session.lemonade_conversation_id);
+            if (!session.lemonade_conversation_id && result.conversationId) {
+              await pool.execute(
+                'UPDATE sessions SET lemonade_conversation_id = ? WHERE id = ?',
+                [result.conversationId, sessionId]
+              );
+            }
+            aiResponse = result.response || "I'm here with you. Can you tell me more about what you're going through?";
+          } catch {
+            aiResponse = "I'm here with you. Can you tell me more about what you're going through?";
+          }
+
+          const swEnc = encrypt(aiResponse);
+          await pool.execute(
+            'INSERT INTO messages (session_id, sender, content_encrypted, iv) VALUES (?, ?, ?, ?)',
+            [sessionId, 'social_worker_ai', swEnc.encrypted, swEnc.iv]
+          );
+          socket.emit('ai:message', { sessionId, message: aiResponse, sender: 'social_worker_ai' });
+          io.to('dashboard').emit('session:update', { sessionId, crisisActive: true });
+          return;
+        }
+
+        // 6. Normal mode: send to Regular Chatbot AND Social Worker AI (silent monitor) in parallel
+        const [chatbotResult, monitorResult] = await Promise.allSettled([
+          callAgent(AGENT_ROLES.CHATBOT, message, session.lemonade_conversation_id),
+          callAgent(AGENT_ROLES.SOCIAL_WORKER, message),
+        ]);
+
+        // 7. Process chatbot response — this is what the user sees
         let aiResponse = '';
-        let senderType = activeRole === AGENT_ROLES.SOCIAL_WORKER ? 'social_worker_ai' : 'ai';
-
-        try {
-          const result = await callAgent(activeRole, message, session.lemonade_conversation_id);
-
+        if (chatbotResult.status === 'fulfilled') {
+          const result = chatbotResult.value;
           if (!session.lemonade_conversation_id && result.conversationId) {
             await pool.execute(
               'UPDATE sessions SET lemonade_conversation_id = ? WHERE id = ?',
               [result.conversationId, sessionId]
             );
           }
-
           aiResponse = result.response || "I'm here to support you. Can you tell me more?";
-        } catch {
+        } else {
           aiResponse = "I'm here to support you. Can you tell me more?";
         }
 
-        // 7. Save AI response with correct sender type
+        // 8. Check Social Worker AI monitoring response for crisis signal
+        let crisisTriggered = false;
+        if (monitorResult.status === 'fulfilled' && monitorResult.value.response) {
+          const { isCrisis } = parseCrisisSignal(monitorResult.value.response);
+          crisisTriggered = isCrisis;
+        }
+
+        // 9. If crisis detected by the agent, activate protocol BEFORE sending chatbot response
+        if (crisisTriggered) {
+          await activateCrisisProtocol(session, sessionId, message, therapist, io);
+          // Don't send the regular chatbot response — Social Worker AI takes over
+          return;
+        }
+
+        // 10. No crisis — save and emit the regular chatbot response
         const aiEnc = encrypt(aiResponse);
         await pool.execute(
           'INSERT INTO messages (session_id, sender, content_encrypted, iv) VALUES (?, ?, ?, ?)',
-          [sessionId, senderType, aiEnc.encrypted, aiEnc.iv]
+          [sessionId, 'ai', aiEnc.encrypted, aiEnc.iv]
         );
+        socket.emit('ai:message', { sessionId, message: aiResponse, sender: 'ai' });
 
-        // 8. Emit AI response directly back to the chatbot client
-        socket.emit('ai:message', { sessionId, message: aiResponse, sender: senderType });
-
-        // 9. Notify dashboard of session activity (no plaintext content — dashboard polls messages)
+        // 11. Notify dashboard of session activity
         io.to('dashboard').emit('session:update', {
           sessionId,
-          crisisActive: isCrisis || !!session.crisis_active,
+          crisisActive: false,
         });
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -267,7 +291,7 @@ function setupSocketHandlers(io) {
   });
 }
 
-async function activateCrisisProtocol(session, sessionId, triggerMessage, triggers, therapist, io) {
+async function activateCrisisProtocol(session, sessionId, triggerMessage, therapist, io) {
   try {
     // 1. Mark session crisis-active and switch to Social Worker AI
     const socialWorkerId = process.env.LEMONADE_AGENT_SOCIAL_WORKER_ID;
@@ -279,10 +303,10 @@ async function activateCrisisProtocol(session, sessionId, triggerMessage, trigge
     // 2. Audit log
     await pool.execute(
       'INSERT INTO audit_log (session_id, actor, action, detail) VALUES (?, ?, ?, ?)',
-      [sessionId, 'system', 'crisis_activated', `Triggers: ${triggers.join(', ')}`]
+      [sessionId, 'system', 'crisis_activated', 'Social Worker AI agent triggered crisis protocol']
     );
 
-    const summary = `Crisis detected in session ${sessionId}. Keywords: ${triggers.join(', ')}.`;
+    const summary = `Crisis detected in session ${sessionId}. Social Worker AI agent activated protocol.`;
 
     // 3. Emit agent:joined to chatbot + dashboard
     io.to(`session:${sessionId}`).emit('agent:joined', {
@@ -354,7 +378,7 @@ async function activateCrisisProtocol(session, sessionId, triggerMessage, trigge
 
     // Audit Agent — log the crisis activation
     parallelActions.push(
-      callAgent(AGENT_ROLES.AUDIT, `CRISIS ACTIVATED. Session: ${sessionId}. Triggers: ${triggers.join(', ')}. Time: ${new Date().toISOString()}. Log this event.`)
+      callAgent(AGENT_ROLES.AUDIT, `CRISIS ACTIVATED. Session: ${sessionId}. Social Worker AI agent triggered protocol. Time: ${new Date().toISOString()}. Log this event.`)
         .then((result) => {
           io.to('dashboard').emit('agent:output', {
             sessionId,
