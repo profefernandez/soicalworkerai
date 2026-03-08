@@ -1,5 +1,5 @@
 const { pool } = require('../config/db');
-const { encrypt } = require('../middleware/encryption');
+const { encrypt, decrypt } = require('../middleware/encryption');
 const { parseCrisisSignal } = require('../services/crisis');
 const { callAgent, AGENT_ROLES } = require('../services/agentOrchestrator');
 const { proxyToProvider } = require('../services/aiProxy');
@@ -10,6 +10,25 @@ const { validateUUID, validateMessageLength } = require('../middleware/validatio
 
 // All authenticated dashboard sockets join the 'dashboard' room so crisis events
 // are broadcast only to authorized users.
+
+const PROFE_COMMAND = '@profe';
+
+/**
+ * Load recent conversation history from DB for the proxy provider.
+ * Returns messages in OpenAI format: [{role: 'user'|'assistant', content}]
+ */
+async function loadConversationHistory(sessionId, limit = 20) {
+  const [rows] = await pool.execute(
+    'SELECT sender, content_encrypted, iv FROM messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?',
+    [sessionId, limit]
+  );
+  // Reverse so oldest first
+  return rows.reverse().map((row) => {
+    const content = decrypt(row.content_encrypted, row.iv);
+    const role = row.sender === 'client' ? 'user' : 'assistant';
+    return { role, content };
+  });
+}
 
 function setupSocketHandlers(io) {
   // Authenticate all socket connections
@@ -141,15 +160,45 @@ function setupSocketHandlers(io) {
           return;
         }
 
-        // 6. Normal mode: send to Company's AI AND Social Worker AI (silent monitor) in parallel
-        const useProxy = !!process.env.OPENAI_API_KEY;
+        // 6. Check for @profe command — route directly to Social Worker AI (inquiry mode)
+        const isProfeCommand = message.toLowerCase().includes(PROFE_COMMAND);
+        if (isProfeCommand) {
+          let profeResponse = '';
+          try {
+            const result = await callAgent(AGENT_ROLES.SOCIAL_WORKER, message, session.lemonade_conversation_id);
+            if (!session.lemonade_conversation_id && result.conversationId) {
+              await pool.execute(
+                'UPDATE sessions SET lemonade_conversation_id = ? WHERE id = ?',
+                [result.conversationId, sessionId]
+              );
+            }
+            profeResponse = result.response || "Hey, I'm Profe! I'm here to help you understand AI better. What's on your mind?";
+          } catch {
+            profeResponse = "Hey, I'm Profe! I'm here to help you understand AI better. What's on your mind?";
+          }
+
+          const profeEnc = encrypt(profeResponse);
+          await pool.execute(
+            'INSERT INTO messages (session_id, sender, content_encrypted, iv) VALUES (?, ?, ?, ?)',
+            [sessionId, 'social_worker_ai', profeEnc.encrypted, profeEnc.iv]
+          );
+          socket.emit('ai:message', { sessionId, message: profeResponse, sender: 'social_worker_ai' });
+          io.to('dashboard').emit('session:update', { sessionId, crisisActive: false });
+          return;
+        }
+
+        // 7. Normal mode: send to Company's AI AND Social Worker AI (silent monitor) in parallel
+        const proxyProvider = process.env.AI_PROVIDER || (process.env.OPENAI_API_KEY ? 'openai' : process.env.MISTRAL_API_KEY ? 'mistral' : null);
+        const proxyApiKey = proxyProvider === 'mistral' ? process.env.MISTRAL_API_KEY : process.env.OPENAI_API_KEY;
+        const useProxy = !!proxyApiKey;
+        const conversationHistory = useProxy ? await loadConversationHistory(sessionId) : [];
 
         const chatbotCall = useProxy
-          ? proxyToProvider(message, [], {
-              provider: 'openai',
-              apiKey: process.env.OPENAI_API_KEY,
-              model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-              systemPrompt: process.env.OPENAI_SYSTEM_PROMPT || '',
+          ? proxyToProvider(message, conversationHistory, {
+              provider: proxyProvider,
+              apiKey: proxyApiKey,
+              model: process.env.AI_MODEL || (proxyProvider === 'mistral' ? 'mistral-small-latest' : 'gpt-4o-mini'),
+              systemPrompt: process.env.AI_SYSTEM_PROMPT || process.env.OPENAI_SYSTEM_PROMPT || '',
             })
           : callAgent(AGENT_ROLES.CHATBOT, message, session.lemonade_conversation_id);
 
@@ -158,7 +207,7 @@ function setupSocketHandlers(io) {
           callAgent(AGENT_ROLES.SOCIAL_WORKER, message),
         ]);
 
-        // 7. Process chatbot response — this is what the user sees
+        // 8. Process chatbot response — this is what the user sees
         let aiResponse = '';
         if (chatbotResult.status === 'fulfilled') {
           if (useProxy) {
@@ -181,21 +230,21 @@ function setupSocketHandlers(io) {
             : "I'm here to support you. Can you tell me more?";
         }
 
-        // 8. Check Social Worker AI monitoring response for crisis signal
+        // 9. Check Social Worker AI monitoring response for crisis signal
         let crisisTriggered = false;
         if (monitorResult.status === 'fulfilled' && monitorResult.value.response) {
           const { isCrisis } = parseCrisisSignal(monitorResult.value.response);
           crisisTriggered = isCrisis;
         }
 
-        // 9. If crisis detected by the agent, activate protocol BEFORE sending chatbot response
+        // 10. If crisis detected by the agent, activate protocol BEFORE sending chatbot response
         if (crisisTriggered) {
           await activateCrisisProtocol(session, sessionId, message, therapist, io);
           // Don't send the regular chatbot response — Social Worker AI takes over
           return;
         }
 
-        // 10. No crisis — save and emit the regular chatbot response
+        // 11. No crisis — save and emit the regular chatbot response
         const aiEnc = encrypt(aiResponse);
         await pool.execute(
           'INSERT INTO messages (session_id, sender, content_encrypted, iv) VALUES (?, ?, ?, ?)',
@@ -203,7 +252,7 @@ function setupSocketHandlers(io) {
         );
         socket.emit('ai:message', { sessionId, message: aiResponse, sender: 'ai' });
 
-        // 11. Notify dashboard of session activity
+        // 12. Notify dashboard of session activity
         io.to('dashboard').emit('session:update', {
           sessionId,
           crisisActive: false,

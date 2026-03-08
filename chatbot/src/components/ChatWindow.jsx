@@ -27,7 +27,7 @@ function MessageBubble({ sender, content, index }) {
   const labels = {
     client: null,
     ai: 'Study Assistant',
-    social_worker_ai: 'Social Worker AI',
+    social_worker_ai: 'Profe',
     admin: 'Jason Fernandez, LMSW',
     system: null,
   };
@@ -169,7 +169,7 @@ export default function ChatWindow({ sessionId }) {
           </button>
         </div>
         <p className="text-center text-ember-muted/40 text-[10px] font-mono mt-3">
-          Type <span className="text-ember-muted/60">@socialworker</span> if you need to talk to someone &middot; 988 or 911 for emergencies
+          Type <span className="text-ember-muted/60">@profe</span> to talk to Profe &middot; 988 or 911 for emergencies
         </p>
       </div>
     </div>

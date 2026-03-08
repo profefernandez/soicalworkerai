@@ -15,6 +15,20 @@ const PROVIDERS = {
     parseResponse: (data) => data.choices?.[0]?.message?.content || '',
     authHeader: (apiKey) => ({ Authorization: `Bearer ${apiKey}` }),
   },
+  mistral: {
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    formatRequest: (input, conversationHistory, config) => ({
+      model: config.model || 'mistral-small-latest',
+      messages: [
+        ...(config.systemPrompt ? [{ role: 'system', content: config.systemPrompt }] : []),
+        ...conversationHistory,
+        { role: 'user', content: input },
+      ],
+      max_tokens: 1024,
+    }),
+    parseResponse: (data) => data.choices?.[0]?.message?.content || '',
+    authHeader: (apiKey) => ({ Authorization: `Bearer ${apiKey}` }),
+  },
 };
 
 /**

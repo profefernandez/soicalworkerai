@@ -88,4 +88,47 @@ describe('aiProxy', () => {
     );
     delete process.env.OPENAI_API_KEY;
   });
+
+  test('calls Mistral with correct format and endpoint', async () => {
+    axios.post.mockResolvedValue({
+      data: {
+        choices: [{ message: { content: 'Mistral response!' } }],
+      },
+    });
+
+    const result = await proxyToProvider('Explain gravity', [], {
+      provider: 'mistral',
+      apiKey: 'mistral-test-key',
+      model: 'mistral-small-latest',
+      systemPrompt: 'You are a science tutor.',
+    });
+
+    expect(result).toBe('Mistral response!');
+    expect(axios.post).toHaveBeenCalledWith(
+      'https://api.mistral.ai/v1/chat/completions',
+      expect.objectContaining({
+        model: 'mistral-small-latest',
+        messages: expect.arrayContaining([
+          { role: 'system', content: 'You are a science tutor.' },
+          { role: 'user', content: 'Explain gravity' },
+        ]),
+      }),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer mistral-test-key',
+        }),
+      })
+    );
+  });
+
+  test('Mistral defaults to mistral-small-latest model', async () => {
+    axios.post.mockResolvedValue({
+      data: { choices: [{ message: { content: 'ok' } }] },
+    });
+
+    await proxyToProvider('Hi', [], { provider: 'mistral', apiKey: 'key' });
+
+    const callArgs = axios.post.mock.calls[0][1];
+    expect(callArgs.model).toBe('mistral-small-latest');
+  });
 });

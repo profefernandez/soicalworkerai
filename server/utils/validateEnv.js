@@ -1,19 +1,15 @@
 const REQUIRED_ENV = [
   'DB_HOST',
-  'DB_PORT',
   'DB_USER',
-  'DB_PASSWORD',
   'DB_NAME',
   'JWT_SECRET',
-  'JWT_EXPIRY',
   'ENCRYPTION_KEY',
+];
+
+const RECOMMENDED_ENV = [
   'LEMONADE_API_KEY',
   'LEMONADE_API_URL',
-  'LEMONADE_AGENT_CHATBOT_ID',
   'LEMONADE_AGENT_SOCIAL_WORKER_ID',
-  'LEMONADE_AGENT_SEARCH_ID',
-  'LEMONADE_AGENT_COMMS_ID',
-  'LEMONADE_AGENT_AUDIT_ID',
 ];
 
 function validateEnv() {
@@ -21,6 +17,14 @@ function validateEnv() {
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(', ')}`
+    );
+  }
+
+  const missingRecommended = RECOMMENDED_ENV.filter((key) => !process.env[key]);
+  if (missingRecommended.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `Warning: Missing recommended env vars (some features disabled): ${missingRecommended.join(', ')}`
     );
   }
   return true;
