@@ -119,6 +119,115 @@ describe('aiProxy', () => {
     delete process.env.MISTRAL_AGENT_ID;
   });
 
+  test('Mistral parseResponse extracts tool_calls when present', async () => {
+    axios.post.mockResolvedValue({
+      data: {
+        outputs: [
+          {
+            role: 'assistant',
+            content: '',
+            tool_calls: [
+              {
+                id: 'call_001',
+                function: {
+                  name: 'check_ai_response',
+                  arguments: JSON.stringify({
+                    safety_rating: 85,
+                    sycophancy_score: 20,
+                    age_appropriate: true,
+                    manipulation_detected: false,
+                    recommended_action: 'none',
+                  }),
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const result = await proxyToProvider('Hello', [], {
+      provider: 'mistral',
+      apiKey: 'key',
+      agentId: 'ag_profe',
+      returnFullResponse: true,
+    });
+
+    expect(result).toEqual({
+      content: '',
+      toolCalls: [
+        {
+          id: 'call_001',
+          name: 'check_ai_response',
+          arguments: {
+            safety_rating: 85,
+            sycophancy_score: 20,
+            age_appropriate: true,
+            manipulation_detected: false,
+            recommended_action: 'none',
+          },
+        },
+      ],
+    });
+  });
+
+  test('Mistral parseResponse returns text-only when no tool_calls', async () => {
+    axios.post.mockResolvedValue({
+      data: {
+        outputs: [{ role: 'assistant', content: 'Just a text reply' }],
+      },
+    });
+
+    const result = await proxyToProvider('Hi', [], {
+      provider: 'mistral',
+      apiKey: 'key',
+      agentId: 'ag_test',
+      returnFullResponse: true,
+    });
+
+    expect(result).toEqual({
+      content: 'Just a text reply',
+      toolCalls: [],
+    });
+  });
+
+  test('Mistral returns string when returnFullResponse is false (backward compat)', async () => {
+    axios.post.mockResolvedValue({
+      data: {
+        outputs: [{ role: 'assistant', content: 'text reply' }],
+      },
+    });
+
+    const result = await proxyToProvider('Hi', [], {
+      provider: 'mistral',
+      apiKey: 'key',
+      agentId: 'ag_test',
+    });
+
+    expect(result).toBe('text reply');
+  });
+
+  test('supports different agent IDs for different calls', async () => {
+    axios.post.mockResolvedValue({
+      data: { outputs: [{ role: 'assistant', content: 'ok' }] },
+    });
+
+    await proxyToProvider('msg1', [], {
+      provider: 'mistral',
+      apiKey: 'key',
+      agentId: 'ag_kiddo_123',
+    });
+
+    await proxyToProvider('msg2', [], {
+      provider: 'mistral',
+      apiKey: 'key',
+      agentId: 'ag_profe_456',
+    });
+
+    expect(axios.post.mock.calls[0][1].agent_id).toBe('ag_kiddo_123');
+    expect(axios.post.mock.calls[1][1].agent_id).toBe('ag_profe_456');
+  });
+
   test('Mistral passes conversation history as inputs', async () => {
     axios.post.mockResolvedValue({
       data: { outputs: [{ role: 'assistant', content: 'ok' }] },

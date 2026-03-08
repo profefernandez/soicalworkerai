@@ -13,6 +13,10 @@ const PROVIDERS = {
       max_tokens: 1024,
     }),
     parseResponse: (data) => data.choices?.[0]?.message?.content || '',
+    parseFullResponse: (data) => ({
+      content: data.choices?.[0]?.message?.content || '',
+      toolCalls: [],
+    }),
     authHeader: (apiKey) => ({ Authorization: `Bearer ${apiKey}` }),
   },
   mistral: {
@@ -25,10 +29,23 @@ const PROVIDERS = {
       ],
     }),
     parseResponse: (data) => {
-      // Conversations API returns outputs array with assistant messages
       const outputs = data.outputs || [];
       const assistantMsg = outputs.find((o) => o.role === 'assistant');
       return assistantMsg?.content || '';
+    },
+    parseFullResponse: (data) => {
+      const outputs = data.outputs || [];
+      const assistantMsg = outputs.find((o) => o.role === 'assistant');
+      const content = assistantMsg?.content || '';
+      const rawToolCalls = assistantMsg?.tool_calls || [];
+      const toolCalls = rawToolCalls.map((tc) => ({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments)
+          : tc.function.arguments,
+      }));
+      return { content, toolCalls };
     },
     authHeader: (apiKey) => ({ Authorization: `Bearer ${apiKey}` }),
   },
@@ -36,10 +53,12 @@ const PROVIDERS = {
 
 /**
  * Forward a message to the company's AI provider.
- * @param {string} input — user's message
- * @param {Array} conversationHistory — previous messages [{role, content}]
- * @param {Object} config — { provider, apiKey, model, systemPrompt }
- * @returns {Promise<string>} — the AI's response text
+ * @param {string} input - user's message
+ * @param {Array} conversationHistory - previous messages [{role, content}]
+ * @param {Object} config - { provider, apiKey, model, systemPrompt, agentId, returnFullResponse }
+ * @returns {Promise<string|{content: string, toolCalls: Array}>}
+ *   If returnFullResponse is true, returns { content, toolCalls }.
+ *   Otherwise returns just the content string (backward compatible).
  */
 async function proxyToProvider(input, conversationHistory = [], config = {}) {
   const providerName = config.provider || 'openai';
@@ -63,6 +82,9 @@ async function proxyToProvider(input, conversationHistory = [], config = {}) {
     timeout: 30000,
   });
 
+  if (config.returnFullResponse) {
+    return provider.parseFullResponse(response.data);
+  }
   return provider.parseResponse(response.data);
 }
 
